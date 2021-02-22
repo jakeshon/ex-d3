@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+    .line {
+        fill: none;
+        stroke: #000;
+        stroke-width: 1.5px;
+    }
+
+    path {
+        fill: none;
+        stroke: #aaa;
+        stroke-width: 1px;
+    }
+</style>
+
+<body>
+
+    <!-- HTML here -->
+
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script>
+
+
+        const n = 50;
+        const duration = 750;
+        let now = new Date(Date.now() - duration);
+        const data = d3.range(n).map(function () { return 0; });
+
+        const margin = {
+            top: 10,
+            right: 40,
+            bottom: 40,
+            left: 40,
+        };
+        const width = 860 - margin.right;
+        const height = 520 - margin.top - margin.bottom;
+
+        var x = d3.time.scale()
+            .domain([now - (n - 2) * duration, now - duration])
+            .range([0, width]);
+
+        var y = d3.scale.linear()
+            .range([height, 0])
+            .domain([0, 100])
+
+        var line = d3.svg.line()
+            .interpolate('basis')
+            .x(function (d, i) { return x(now - (n - 1 - i) * duration); })
+            .y(function (d, i) { return y(d); });
+
+        var svg = d3.select('body').append('p').append('svg')
+            .attr('width', width + margin.left + margin.right)
+            .attr('height', height + margin.top + margin.bottom)
+            .style('margin-left', `${-margin.left}px`)
+            .append('g')
+            .attr('transform', `translate(${margin.left}, ${margin.top})`);
+
+        svg.append('defs').append('clipPath')
+            .attr('id', 'clip')
+            .append('rect')
+            .attr('width', width)
+            .attr('height', height);
+
+        var axisx = svg.append('g')
+            .attr('class', 'x axis')
+            .attr('transform', `translate(0, ${height})`)
+            .call(x.axis = d3.svg.axis().scale(x).orient('bottom').tickPadding(10));
+
+        var axisy = svg.append('g')
+            .attr('class', 'y axis')
+            .attr('transform', `translate(${width}, 0)`)
+            .call(y.axis = d3.svg.axis().scale(y).orient('right').tickPadding(10));
+
+        var path = svg.append('g')
+            .attr('clip-path', 'url(#clip)')
+            .append('path')
+            .datum(data)
+            .attr('class', 'line');
+
+        var transition = d3.select({}).transition()
+            .duration(duration)
+            .ease('linear');
+
+        var lastVal = 20;
+
+        (function tick() {
+            transition = transition.each(function () {
+
+                // Update the domain of the x-axis
+                now = new Date();
+
+                // Push the new data point
+                data.push(lastVal += 2);
+
+                var xNowPointOld = x(now),
+                    y0PointOld = y(0),
+                    y100PointOld = y(100);
+
+                x.domain([now - (n - 2) * duration, now - duration]);
+                y.domain([Math.min.apply(Math, data) - 10, Math.max.apply(Math, data) + 10]);
+
+                var xNowPointNew = x(now),
+                    y0PointNew = y(0),
+                    y100PointNew = y(100);
+
+                axisy.call(y.axis);
+
+                // Redraw the line
+                svg.select('.line')
+                    .attr('d', line)
+                    .attr('transform', null);
+
+                // Slide the x-axis left
+                axisx.call(x.axis);
+
+                // Calculate transformation matrix
+                const d = (y100PointNew - y0PointNew) / (y100PointOld - y0PointOld),
+                    e = xNowPointNew - xNowPointOld,
+                    f = y100PointNew - (d * y100PointOld);
+
+                // Slide the line left
+                path.transition()
+                    .attr('transform', `matrix(1,0,0,${d},${e},${f})`);
+
+                // Pop the old data point off the front
+                data.shift();
+
+            }).transition().each('start', tick);
+        })();
+
+    </script>
